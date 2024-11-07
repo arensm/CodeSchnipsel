@@ -6,13 +6,18 @@ AP-2024.01.02-a
 I2C-scanner
 - scan the bus for I2C devices
 
+ROLLOSTEUERUNG
+- Control relais over ESP01 and Arduino Code 2018
 
+Tasmota-Volkszaehler
+- Control PowerMeter
 
-
-
-
-
-
+.
+.
+.
+.
+.
+.
 
 -- Init
 
