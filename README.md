@@ -7,7 +7,8 @@ I2C-scanner
 - scan the bus for I2C devices
 
 ROLLOSTEUERUNG
-- Control relais over ESP01 and Arduino Code 2018
+- Control relais over ESP01 and Arduino
+- Code from 2018
 
 Tasmota-Volkszaehler
 - Control PowerMeter
