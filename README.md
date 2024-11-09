@@ -32,7 +32,9 @@ cd CodeSchnipsel
 
 echo "# CodeSchnipsel" >> README.md
 
-git init\ngit add README.md
+git init
+
+git add README.md
 
 git commit -m "2024.11.07 Start"
 
