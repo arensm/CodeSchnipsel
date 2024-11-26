@@ -1,4 +1,4 @@
-#include <arduino.h>
+#include <arduino.h>     // Include for platformIO
 #include <WiFi.h>        // Include the WiFi library for ESP32 functionality
 #include <WiFiManager.h> // Include the WiFiManager library for managing WiFi connections
 
