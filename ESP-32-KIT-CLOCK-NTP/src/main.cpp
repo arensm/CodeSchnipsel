@@ -228,13 +228,10 @@ void updateDisplay(struct tm *tmPointer) {
         u8g2.setFont(u8g2_font_logisoso18_tf); // Use a large font for the time.
         sprintf(chBuffer, "%02d:%02d:%02d%s", hour, tmPointer->tm_min, tmPointer->tm_sec, am_pm); // Format: HH:MM:SS AM/PM.
     }
+    u8g2.drawStr(64 - (u8g2.getStrWidth(chBuffer) / 2), 63 - FONT_TWO_HEIGHT, chBuffer); // Center-align the time on the display
 
-//    u8g2.sendBuffer(); // Send the buffer to the OLED to update the display.
-    u8g2.drawStr(10, 63 - FONT_TWO_HEIGHT, chBuffer);
-
-    u8g2.sendBuffer();
+    u8g2.sendBuffer(); // Send the buffer to the OLED to update the display.
 }
-
 
 String generateHTMLPage() {
     String html = "<html><body>";
@@ -253,7 +250,7 @@ String generateHTMLPage() {
         html += "<input type='radio' name='lang' value='en'";
         if (oledLanguage == "en") html += " checked";
         html += "> Englisch";
-        html += "<button type='submit'>Sprache ändern</button>";
+        html += "<button type='submit'>Sprache aendern</button>";
         html += "</form>";
     } else if (oledLanguage == "en") {
         html += "<h1>ESP32 Settings</h1>";
