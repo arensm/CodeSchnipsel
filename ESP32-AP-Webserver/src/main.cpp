@@ -11,6 +11,7 @@ String hostname = "ESP32"; // Default hostname
 // Forward declarations of custom functions
 void resetWiFiCredentials();
 void setHostname(String newHostname);
+void handleSettingsPage(WiFiClient &client);
 
 void setup() {
   Serial.begin(115200); // Start serial communication for debugging
@@ -47,74 +48,107 @@ void loop() {
     String request = client.readStringUntil('\r'); // Read the client's HTTP request
     Serial.println("Request: " + request); // Log the request for debugging
 
-    // Check if the request is to reset WiFi credentials
-    if (request.indexOf("/reset") != -1) {
-      // Respond with a confirmation page
-      client.println("HTTP/1.1 200 OK");
-      client.println("Content-Type: text/html");
-      client.println();
-      client.println("<html><body>");
-      client.println("<h1>WiFi Credentials Reset</h1>");
-      client.println("<p>The device will restart and reset the credentials.</p>");
-      client.println("</body></html>");
-      client.stop();
-      delay(1000); // Allow time for the client to receive the response
-      resetWiFiCredentials(); // Call the function to reset WiFi credentials
+    // Route to the settings page
+    if (request.indexOf("GET /settings") != -1) {
+      handleSettingsPage(client); // Handle the settings page
     } 
-    // Check if the request is to set a new hostname
-    else if (request.indexOf("/sethostname?name=") != -1) {
-      // Extract the new hostname from the request
-      int start = request.indexOf("name=") + 5; // Start of the hostname parameter
-      int end = request.indexOf(" ", start);   // End of the parameter
-      String newHostname = request.substring(start, end);
-      newHostname.trim(); // Remove any trailing spaces or newlines
-
-      if (newHostname.length() > 0 && newHostname.length() <= 32) { // Valid hostname length
-        setHostname(newHostname); // Set the new hostname
-        client.println("HTTP/1.1 200 OK");
-        client.println("Content-Type: text/html");
-        client.println();
-        client.println("<html><body>");
-        client.println("<h1>Hostname Updated</h1>");
-        client.println("<p>New Hostname: " + newHostname + "</p>");
-        client.println("<p>The device will restart now.</p>");
-        client.println("</body></html>");
-        client.stop();
-        delay(1000); // Allow time for the client to receive the response
-        ESP.restart(); // Restart ESP to apply the new hostname
-      } else {
-        // Respond with an error if the hostname is invalid
-        client.println("HTTP/1.1 400 Bad Request");
-        client.println("Content-Type: text/html");
-        client.println();
-        client.println("<html><body>");
-        client.println("<h1>Invalid Hostname</h1>");
-        client.println("<p>Hostname must be between 1 and 32 characters.</p>");
-        client.println("</body></html>");
-        client.stop();
-      }
-    } 
-    else {
-      // Default response for the main page
+    // Default response for the main page
+    else if (request.indexOf("GET / ") != -1) {
       client.println("HTTP/1.1 200 OK");
       client.println("Content-Type: text/html");
       client.println();
       client.println("<html><body>");
       client.println("<h1>ESP32 Web Server</h1>");
       client.println("<p>Current Hostname: " + hostname + "</p>");
-      // Button to send a request to reset WiFi credentials
-      client.println("<form action=\"/reset\" method=\"get\">");
-      client.println("<button type=\"submit\">Reset WiFi credentials </button>");
-      client.println("</form>");
-      // Form to update the hostname
-      client.println("<form action=\"/sethostname\" method=\"get\">");
-      client.println("<label for=\"name\">Set Hostname:</label>");
-      client.println("<input type=\"text\" id=\"name\" name=\"name\" maxlength=\"32\">");
-      client.println("<button type=\"submit\">Update Hostname</button>");
-      client.println("</form>");
+      // Link to the settings page
+      client.println("<a href=\"/settings\">Go to Settings</a>");
+      client.println("</body></html>");
+      client.stop();
+    } 
+    else {
+      // Send 404 response for unknown routes
+      client.println("HTTP/1.1 404 Not Found");
+      client.println("Content-Type: text/html");
+      client.println();
+      client.println("<html><body>");
+      client.println("<h1>404 Not Found</h1>");
       client.println("</body></html>");
       client.stop();
     }
+  }
+}
+
+// Function to handle the settings page
+void handleSettingsPage(WiFiClient &client) {
+  String request = client.readStringUntil('\r'); // Read the client's HTTP request
+  Serial.println("Settings Request: " + request); // Log the request for debugging
+
+  // Check if the request is to reset WiFi credentials
+  if (request.indexOf("/settings/reset") != -1) {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println();
+    client.println("<html><body>");
+    client.println("<h1>WiFi Credentials Reset</h1>");
+    client.println("<p>The device will restart and reset the credentials.</p>");
+    client.println("</body></html>");
+    client.stop();
+    delay(1000); // Allow time for the client to receive the response
+    resetWiFiCredentials(); // Call the function to reset WiFi credentials
+  } 
+  // Check if the request is to set a new hostname
+  else if (request.indexOf("/settings/sethostname?name=") != -1) {
+    int start = request.indexOf("name=") + 5; // Start of the hostname parameter
+    int end = request.indexOf(" ", start);   // End of the parameter
+    String newHostname = request.substring(start, end);
+    newHostname.trim(); // Remove any trailing spaces or newlines
+
+    if (newHostname.length() > 0 && newHostname.length() <= 32) { // Valid hostname length
+      setHostname(newHostname); // Set the new hostname
+      client.println("HTTP/1.1 200 OK");
+      client.println("Content-Type: text/html");
+      client.println();
+      client.println("<html><body>");
+      client.println("<h1>Hostname Updated</h1>");
+      client.println("<p>New Hostname: " + newHostname + "</p>");
+      client.println("<p>The device will restart now.</p>");
+      client.println("</body></html>");
+      client.stop();
+      delay(1000); // Allow time for the client to receive the response
+      ESP.restart(); // Restart ESP to apply the new hostname
+    } else {
+      // Respond with an error if the hostname is invalid
+      client.println("HTTP/1.1 400 Bad Request");
+      client.println("Content-Type: text/html");
+      client.println();
+      client.println("<html><body>");
+      client.println("<h1>Invalid Hostname</h1>");
+      client.println("<p>Hostname must be between 1 and 32 characters.</p>");
+      client.println("</body></html>");
+      client.stop();
+    }
+  } 
+  // Display the settings page
+  else {
+    client.println("HTTP/1.1 200 OK");
+    client.println("Content-Type: text/html");
+    client.println();
+    client.println("<html><body>");
+    client.println("<h1>Settings</h1>");
+    // Button to reset WiFi credentials
+    client.println("<form action=\"/settings/reset\" method=\"get\">");
+    client.println("<button type=\"submit\">Reset WiFi credentials </button>");
+    client.println("</form>");
+    // Form to update the hostname
+    client.println("<form action=\"/settings/sethostname\" method=\"get\">");
+    client.println("<label for=\"name\">Set Hostname:</label>");
+    client.println("<input type=\"text\" id=\"name\" name=\"name\" maxlength=\"32\">");
+    client.println("<button type=\"submit\">Update Hostname</button>");
+    client.println("</form>");
+    // Back button to go to the main page
+    client.println("<a href=\"/\">Back to Main</a>");
+    client.println("</body></html>");
+    client.stop();
   }
 }
 
