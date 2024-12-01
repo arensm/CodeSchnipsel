@@ -1,0 +1,145 @@
+#include <Arduino.h>
+#include <ShiftRegister74HC595.h>
+
+// Pin definitions
+#define CLK 2         // Clock pin for the shift register (SCLK)
+#define DIO 3         // Data pin for the shift register (SDI)
+#define LOAD 4        // Latch pin for the shift register (LOAD)
+#define BUTTON_PIN 7  // Pin for the push button to start the countdown
+#define RELAY_PIN 8   // Pin for the relay
+#define ENCODER_A 5   // Encoder A pin
+#define ENCODER_B 6   // Encoder B pin
+
+#define DIGITS 2      // Number of digits (two digits)
+
+// Create shift register object for controlling the 7-segment displays (2 shift registers)
+ShiftRegister74HC595<2> sr(DIO, CLK, LOAD); // Pass pins for data, clock, and latch
+
+int countdownTime = 0;  // Countdown time (in seconds, range 00-99)
+int digit1, digit2;     // Variables to store the individual digits for the 7-segment display
+
+uint8_t digits[] = {
+  B11000000, // 0
+  B11111001, // 1
+  B10100100, // 2
+  B10110000, // 3
+  B10011001, // 4
+  B10010010, // 5
+  B10000010, // 6
+  B11111000, // 7
+  B10000000, // 8
+  B10010000  // 9
+};
+
+bool isCounting = false; // Flag to check if the countdown is in progress
+int encoderPos = 0;  // Track the rotary encoder position
+int lastEncoderA = HIGH;  // Last state of encoder A pin
+int lastEncoderB = HIGH;  // Last state of encoder B pin
+unsigned long lastEncoderTime = 0;  // Last time the encoder was read
+unsigned long encoderDelay = 50;  // Delay for encoder debounce
+unsigned long lastButtonPressTime = 0;  // Track button press time
+unsigned long debounceDelay = 50;  // Debounce delay for the button
+
+// Function prototypes
+void showNumber(int num);          // Function to display the countdown number
+void readEncoder();                // Function to read encoder A and B pins
+void startCountdown();             // Function for button to start the countdown
+
+void setup() {
+  // Setup pins
+  pinMode(BUTTON_PIN, INPUT_PULLUP);  // Button pin with pull-up resistor
+  pinMode(RELAY_PIN, OUTPUT);         // Relay pin
+  pinMode(ENCODER_A, INPUT_PULLUP);   // Enable internal pull-up resistor for Encoder A
+  pinMode(ENCODER_B, INPUT_PULLUP);   // Enable internal pull-up resistor for Encoder B
+
+  // Set the initial state for the relay and displays
+  digitalWrite(RELAY_PIN, LOW);       // Relay is off at the start
+  showNumber(0);                      // Display 00 at the start
+  
+  // Initialize serial for debugging
+  Serial.begin(9600);                 // Start serial communication at 9600 baud
+}
+
+void loop() {
+  // Read the encoder state
+  readEncoder();
+
+  // Update the countdown time based on encoder position
+  countdownTime = encoderPos % 100;  // Keep the countdown within 00-99 range
+  showNumber(countdownTime);         // Update the display with new countdown time
+
+  // Check for button press to start countdown (debounced)
+  if (digitalRead(BUTTON_PIN) == LOW && (millis() - lastButtonPressTime) > debounceDelay) {
+    lastButtonPressTime = millis();  // Update button press time
+    startCountdown();                // Start countdown
+  }
+
+  // If countdown is active, decrease time and control relay
+  if (isCounting) {
+    if (countdownTime > 0) {
+      // Decrease the countdown time every second
+      if (millis() - lastButtonPressTime >= 1000) {
+        countdownTime--;  // Decrease countdown time
+        showNumber(countdownTime);  // Update display
+        lastButtonPressTime = millis();  // Reset the timer for the next second
+      }
+    } else {
+      // Countdown has finished, turn off the relay
+      digitalWrite(RELAY_PIN, LOW);  // Turn off relay
+      isCounting = false;            // Stop the countdown
+    }
+  }
+}
+
+// Function to display the countdown number on the 7-segment displays
+void showNumber(int num) {
+  digit2 = num % 10;        // Get the ones digit
+  digit1 = (num / 10) % 10; // Get the tens digit
+
+  // Send the digits to the shift register
+  uint8_t numberToPrint[] = { digits[digit1], digits[digit2] };
+  sr.setAll(numberToPrint);  // Update the shift register
+}
+
+// Function to read the encoder's A and B pins and detect direction
+void readEncoder() {
+  int encoderA = digitalRead(ENCODER_A);  // Read the state of encoder A
+  int encoderB = digitalRead(ENCODER_B);  // Read the state of encoder B
+
+  // Print the states of encoder A and B for debugging
+  Serial.print("Encoder A: ");
+  Serial.print(encoderA);
+  Serial.print(" Encoder B: ");
+  Serial.println(encoderB);
+
+  // If encoder A has changed state, check for rotation
+  if (encoderA != lastEncoderA) {
+    // If encoder A leads B, then we are rotating clockwise
+    if (encoderA == LOW && encoderB == HIGH) {
+      encoderPos++;  // Clockwise rotation
+      Serial.println("Clockwise");
+    }
+    // If encoder A lags B, then we are rotating counterclockwise
+    else if (encoderA == HIGH && encoderB == LOW) {
+      encoderPos--;  // Counterclockwise rotation
+      Serial.println("Counterclockwise");
+    }
+  }
+
+  // Update the last encoder state
+  lastEncoderA = encoderA;
+  lastEncoderB = encoderB;
+
+  // Ensure the encoder position is within 0-99 range
+  if (encoderPos < 0) encoderPos = 0;
+  if (encoderPos > 99) encoderPos = 99;
+}
+
+// Function to start the countdown and activate the relay
+void startCountdown() {
+  if (!isCounting) {
+    digitalWrite(RELAY_PIN, HIGH); // Turn on relay when countdown starts
+    isCounting = true;             // Start countdown
+    lastButtonPressTime = millis(); // Reset the time for countdown
+  }
+}

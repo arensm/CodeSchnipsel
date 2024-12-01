@@ -1,0 +1,101 @@
+/* 
+ *  updated by Ahmad Shamshiri for Robojax 
+  Lesson 24: 2 digits dispaly using 74HC595 chip
+ *  On Monday Sep 17, 2019 at 00:03 in Ajax, Ontario, Canada
+ *  
+ *  Watch video instruction for this video: https://youtu.be/pJPdH7mOUzk
+ *  At the moments, it doesn't display dicimal points. It needs a little work to make it work
+
+ * This code is part of Arduino Step by Step Course which starts here:  https://youtu.be/-6qSrDUA5a8
+ * 
+ * for library of this code visit http://robojax.com/
+ * 
+If you found this tutorial helpful, please support me so I can continue creating 
+content like this. Make a donation using PayPal by credit card https://bit.ly/donate-robojax 
+
+
+ * This code is "AS IS" without warranty or liability. Free to be used as long as you keep this note intact.* 
+ * This code has been download from Robojax.com
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>. 
+
+
+ *  Original source and text.
+ *  2 Digitl 7 segment display PCB board with (2) 74HC595 shift register ICs
+ *  Arduino Tutorial - www.Ardumotive.com
+ *  Dev: Michalis Vasilakis // Date: 31/1/2018 // Ver:1.0
+ */
+
+#include <Arduino.h>
+#include <ShiftRegister74HC595.h>
+
+#define CLK 2         // Clock pin (SCLK)
+#define DIO 3         // Data pin (SDI)
+#define LOAD 4        // Load pin (LOAD)
+
+#define SDI 3         // Data pin (SDI)
+#define SCLK 2        // Clock pin (SCLK)
+#define LOAD 4        // Load pin (LOAD)
+#define DIGITS 2      // 2 digits
+
+// Create shift register object (number of shift registers, data pin, clock pin, latch pin)
+ShiftRegister74HC595<2> sr(SDI, SCLK, LOAD); // Specify template parameter for 2 shift registers
+
+int value, digit1, digit2, digit3, digit4;
+uint8_t digits[] = {
+  B11000000, // 0
+  B11111001, // 1
+  B10100100, // 2
+  B10110000, // 3
+  B10011001, // 4
+  B10010010, // 5
+  B10000010, // 6
+  B11111000, // 7
+  B10000000, // 8
+  B10010000  // 9
+};
+
+void showNumber(int num); // Declare the function before it's used
+
+void setup() {
+  // No need for sr.begin(); the shift register is initialized in the constructor
+}
+
+void loop() {
+  showNumber(18);  // Show number 18
+  delay(2000);
+  
+  for (int i = 0; i <= 99; i++) {
+    showNumber(i);
+    delay(1000);
+  }
+  
+  delay(2000);
+  
+  for (int i = 99; i >= 0; i--) {
+    showNumber(i);
+    delay(50);
+  }
+
+  delay(2000);
+}
+
+// Function to show number on the Seven Segment Display
+void showNumber(int num) {
+  digit2 = num % 10;        // Get the units digit
+  digit1 = (num / 10) % 10; // Get the tens digit
+  
+  // Send the digits to the shift register to update the 7-segment displays
+  uint8_t numberToPrint[] = { digits[digit1], digits[digit2] };
+  sr.setAll(numberToPrint);  // Set the values to the shift register
+}
