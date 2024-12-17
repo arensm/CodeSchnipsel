@@ -1,0 +1,139 @@
+#include <Arduino.h>
+#include <ShiftRegister74HC595.h>
+
+// Pin definitions for the shift registers
+#define CLK 2         // Clock pin (SCLK)
+#define DIO 3         // Data pin (SDI)
+#define LOAD 4        // Load pin (LOAD)
+
+// Create shift register object for controlling the 7-segment displays (2 shift registers)
+ShiftRegister74HC595<2> sr(DIO, CLK, LOAD); // Pass pins for data, clock, and latch
+
+// Pin definitions for the rotary encoder
+#define ENCODER_PIN_A 5 // Encoder output A
+#define ENCODER_PIN_B 6 // Encoder output B
+#define ENCODER_SWITCH 7 // Encoder switch (button)
+
+// Pin for the relay module
+#define RELAY_PIN 8
+
+// Variables for the encoder
+int currentCount = 0; // Stores the current countdown value
+bool counting = false; // Indicates if the countdown is active
+unsigned long previousMillis = 0; // For timing the countdown
+const int interval = 1000; // 1 second in milliseconds
+
+// Array to hold the segment patterns for digits 0-9
+uint8_t digits[] = {
+  B11000000, // 0
+  B11111001, // 1
+  B10100100, // 2
+  B10110000, // 3
+  B10011001, // 4
+  B10010010, // 5
+  B10000010, // 6
+  B11111000, // 7
+  B10000000, // 8
+  B10010000  // 9
+};
+
+// Declare digit1 and digit2 globally
+int digit1 = 0, digit2 = 0;  // Tens place and ones place
+
+// Forward declaration of updateDisplay function
+void updateDisplay(int tens, int ones);
+
+void setup() {
+  // Initialize pins
+  pinMode(RELAY_PIN, OUTPUT);
+  digitalWrite(RELAY_PIN, LOW); // Ensure the relay is off
+  
+  pinMode(ENCODER_PIN_A, INPUT_PULLUP);
+  pinMode(ENCODER_PIN_B, INPUT_PULLUP);
+  pinMode(ENCODER_SWITCH, INPUT_PULLUP);
+
+  // Initialize Serial Communication
+  Serial.begin(9600);
+  Serial.println("Timer Ready. Waiting for input...");
+}
+
+void loop() {
+  static int lastA = HIGH; // Previous state of ENCODER_PIN_A
+  static bool lastSwitchState = HIGH; // Previous state of ENCODER_SWITCH
+
+  if (!counting) {
+    // Handle encoder for adjusting seconds
+    int currentA = digitalRead(ENCODER_PIN_A);
+    if (currentA == LOW && lastA == HIGH) {
+      if (digitalRead(ENCODER_PIN_B) == HIGH) {
+        // Clockwise turn
+        currentCount = (currentCount + 1) % 100; // Increment seconds, wrap at 99
+        Serial.print("Encoder turned clockwise. Current count: ");
+        Serial.println(currentCount);
+      } else {
+        // Counter-clockwise turn
+        currentCount = (currentCount - 1 + 100) % 100; // Decrement seconds, wrap at 0
+        Serial.print("Encoder turned counter-clockwise. Current count: ");
+        Serial.println(currentCount);
+      }
+      
+      // Update display
+      digit1 = currentCount / 10;  // Tens place
+      digit2 = currentCount % 10;  // Ones place
+      updateDisplay(digit1, digit2);
+    }
+    lastA = currentA;
+
+    // Handle button press for starting countdown
+    bool currentSwitchState = digitalRead(ENCODER_SWITCH);
+    if (lastSwitchState == HIGH && currentSwitchState == LOW) {
+      // Button pressed
+      Serial.println("Encoder button pressed. Countdown started.");
+      counting = true;
+      digitalWrite(RELAY_PIN, HIGH); // Turn on the relay
+      previousMillis = millis(); // Reset the countdown timer
+    }
+    lastSwitchState = currentSwitchState;
+  } else {
+    // Handle countdown
+    if (millis() - previousMillis >= interval) {
+      previousMillis = millis();
+      currentCount--; // Decrement the counter
+      Serial.print("Counting down. Current value: ");
+      Serial.println(currentCount);
+
+      // Update display
+      digit1 = currentCount / 10;  // Tens place
+      digit2 = currentCount % 10;  // Ones place
+      updateDisplay(digit1, digit2);
+
+      if (currentCount <= 0) {
+        // Countdown finished
+        Serial.println("Countdown finished. Relay off.");
+        counting = false;
+        digitalWrite(RELAY_PIN, LOW); // Turn off the relay
+        // Clear display
+        updateDisplay(0, 0); // Clear the display
+        currentCount = 0; // Reset count to 0
+      }
+    }
+  }
+}
+
+// Function to update the 7-segment display
+void updateDisplay(int tens, int ones) {
+  // Debugging: Überprüfen der Werte für die angezeigten Ziffern
+  Serial.print("Displaying digits: ");
+  Serial.print(tens);
+  Serial.print(", ");
+  Serial.println(ones);
+
+  // Setzen der Zehnerstelle (links)
+  sr.set(0, digits[tens]); // Display 1 (links)
+
+  // Setzen der Einerstelle (rechts)
+  sr.set(1, digits[ones]); // Display 2 (rechts)
+
+  // Latchen der Daten in das Shift-Register
+  sr.updateRegisters();  // Verwendung von updateRegisters(), um die Daten zu latchen
+}

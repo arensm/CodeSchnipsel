@@ -3,30 +3,37 @@
 #include <Arduino.h>
 #include <TM1637Display.h>
 
-#define CLK 2
-#define DIO 3
-#define LOAD 4
+// Pin definitions for the 7-segment displays
+#define CLK 2         // Clock pin (SCLK)
+#define DIO 3         // Data pin (SDI)
+#define LOAD 4        // Load pin (LOAD)
 TM1637Display display(CLK, DIO);
 
-#define ENCODER_PIN_A 5
-#define ENCODER_PIN_B 6
-#define ENCODER_SWITCH 7
+// Pin definitions for the rotary encoder
+#define ENCODER_PIN_A 5 // Encoder output A
+#define ENCODER_PIN_B 6 // Encoder output B
+#define ENCODER_SWITCH 7 // Encoder switch (button)
+
+// Pin for the relay module
 #define RELAY_PIN 8
 
-const unsigned long LONG_PRESS_DURATION = 1000; // 1 Sekunde für langen Druck
+// Debounce constants
+const unsigned long DEBOUNCE_DELAY = 50;  // 50 ms debounce time
 
+// Variables
 int currentCount = 0;
 bool counting = false;
 unsigned long previousMillis = 0;
 const int interval = 1000;
 
+// Debounce variables
 int lastEncoderA = HIGH;
+unsigned long lastDebounceTime = 0;
 int lastSwitchState = HIGH;
-unsigned long buttonPressTime = 0;
 
 void setup() {
   pinMode(RELAY_PIN, OUTPUT);
-  digitalWrite(RELAY_PIN, HIGH); // Sicherstellen, dass Relais initial AUS ist
+  digitalWrite(RELAY_PIN, LOW);
   
   pinMode(ENCODER_PIN_A, INPUT_PULLUP);
   pinMode(ENCODER_PIN_B, INPUT_PULLUP);
@@ -40,15 +47,16 @@ void setup() {
 }
 
 void loop() {
+  // Encoder rotation handling with serial output
   int currentA = digitalRead(ENCODER_PIN_A);
-  int currentSwitchState = digitalRead(ENCODER_SWITCH);
   
   if (!counting) {
-    // Encoder rotation handling
+    // Check for encoder rotation
     if (currentA != lastEncoderA) {
       delay(5); // Small delay for stability
       
       if (currentA == LOW) {
+        // Only trigger on falling edge
         if (digitalRead(ENCODER_PIN_B) == HIGH) {
           // Clockwise
           currentCount = (currentCount + 1) % 100;
@@ -66,31 +74,17 @@ void loop() {
       lastEncoderA = currentA;
     }
 
-    // Button press handling with long press detection
-    if (currentSwitchState == LOW) {
-      if (lastSwitchState == HIGH) {
-        // Button just pressed
-        buttonPressTime = millis();
-      }
-      
-      // Check for long press
-      if (millis() - buttonPressTime >= LONG_PRESS_DURATION) {
-        // Long press detected - reset to zero
-        currentCount = 0;
-        display.showNumberDecEx(currentCount, 0b01000000, true);
-        Serial.println("Long press detected. Timer reset to zero.");
-        
-        // Wait for button release to prevent multiple resets
-        while(digitalRead(ENCODER_SWITCH) == LOW) {
-          delay(10);
-        }
-      }
-    } else if (lastSwitchState == LOW && currentSwitchState == HIGH) {
-      // Short press to start countdown
-      if (millis() - buttonPressTime < LONG_PRESS_DURATION) {
+    // Button press handling
+    int currentSwitchState = digitalRead(ENCODER_SWITCH);
+    
+    if (lastSwitchState == HIGH && currentSwitchState == LOW) {
+      // Debounce
+      delay(50);
+      if (digitalRead(ENCODER_SWITCH) == LOW) {
+        // Button pressed
         Serial.println("Encoder button pressed. Countdown started.");
         counting = true;
-        digitalWrite(RELAY_PIN, LOW); // Relais EIN
+        digitalWrite(RELAY_PIN, HIGH);
         previousMillis = millis();
       }
     }
@@ -110,28 +104,24 @@ void loop() {
       if (currentCount <= 0) {
         Serial.println("Countdown finished. Relay off.");
         counting = false;
-        digitalWrite(RELAY_PIN, HIGH); // Relais AUS
+        digitalWrite(RELAY_PIN, LOW);
         display.clear();
         currentCount = 0;
       }
     }
 
-    // Option to stop countdown with button press
-    if (currentSwitchState == LOW) {
-      if (millis() - buttonPressTime >= LONG_PRESS_DURATION) {
+    // Option to stop countdown with button
+    int currentSwitchState = digitalRead(ENCODER_SWITCH);
+    if (lastSwitchState == HIGH && currentSwitchState == LOW) {
+      delay(50);
+      if (digitalRead(ENCODER_SWITCH) == LOW) {
         Serial.println("Countdown stopped.");
         counting = false;
-        digitalWrite(RELAY_PIN, HIGH); // Relais AUS
+        digitalWrite(RELAY_PIN, LOW);
         display.clear();
         currentCount = 0;
-        
-        // Wait for button release
-        while(digitalRead(ENCODER_SWITCH) == LOW) {
-          delay(10);
-        }
       }
     }
-    
     lastSwitchState = currentSwitchState;
   }
 }
